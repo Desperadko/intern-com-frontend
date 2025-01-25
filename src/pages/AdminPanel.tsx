@@ -31,6 +31,13 @@ import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { User } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+interface Template {
+  id: string;
+  subject: string;
+  message: string;
+}
 
 export function AdminPanel() {
   const { t } = useTranslation();
@@ -39,6 +46,41 @@ export function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [acceptedTemplate, setAcceptedTemplate] = useState<Template | null>(null);
+  const [rejectedTemplate, setRejectedTemplate] = useState<Template | null>(null);
+  const [, setError] = useState<string | null>(null);
+  const [, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const acceptedResponse = await fetch("/email-template?isApproved=true");
+        if (!acceptedResponse.ok) {
+          throw new Error("Failed to fetch accepted template");
+        }
+        const acceptedData = await acceptedResponse.json();
+        setAcceptedTemplate(acceptedData.template);
+
+        const rejectedResponse = await fetch("/email-template?isApproved=false");
+        if (!rejectedResponse.ok) {
+          throw new Error("Failed to fetch rejected template");
+        }
+        const rejectedData = await rejectedResponse.json();
+        setRejectedTemplate(rejectedData.template);
+      } catch (err) {
+        setError("Error fetching templates.");
+        console.error("Error fetching templates:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTemplates();
+  }, []);
+
+  const [editingTemplate, setEditingTemplate] = useState<"accepted" | "rejected" | null>(null);
+  const [subject, setSubject] = useState<string>("");
+  const [message, setMessage] = useState<string>("");
 
   useEffect(() => {
     fetchUsers();
@@ -55,6 +97,20 @@ export function AdminPanel() {
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
 
+  const handleSave = async (templateId: string) => {
+    const updatedTemplate: Template = { id: templateId, subject, message };
+    console.log("Saving Template:", updatedTemplate);
+    alert(`Template saved: ${templateId}`);
+    setEditingTemplate(null);
+  };
+  const openEditModal = (template: Template) => {
+    setSubject(template.subject);
+    setMessage(template.message);
+    setEditingTemplate(template.id as "accepted" | "rejected");
+  };
+  const closeModal = () => {
+    setEditingTemplate(null);
+  };
   const fetchUsers = async () => {
     try {
       const response = await api.get("/users");
@@ -191,6 +247,96 @@ export function AdminPanel() {
             ))}
           </TableBody>
         </Table>
+      </div>
+      <div className="max-w-2x1 mx-auto mt-8">
+        <Card>
+          <CardHeader className="text-xl font-bold">Mail Templates</CardHeader>
+          <CardContent>
+            {/* Grid layout to display templates */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+              {/* Display Accepted Template */}
+              {acceptedTemplate && editingTemplate !== "accepted" ? (
+                <div className="flex flex-col">
+                  <h2 className="text-lg font-semibold mb-2">Accepted Template</h2>
+                  <p className="font-medium mb-2">
+                    <strong>Subject:</strong> {acceptedTemplate.subject}
+                  </p>
+                  <p className="mb-2">
+                    <strong>Body:</strong> {acceptedTemplate.message}
+                  </p>
+                  <Button
+                    onClick={() => openEditModal(acceptedTemplate)}
+                    className="bg-blue-500 text-white"
+                  >
+                    Edit Accepted Template
+                  </Button>
+                </div>
+              ) : null}
+
+              {/* Display Rejected Template */}
+              {rejectedTemplate && editingTemplate !== "rejected" ? (
+                <div className="flex flex-col">
+                  <h2 className="text-lg font-semibold mb-2">Rejected Template</h2>
+                  <p className="font-medium mb-2">
+                    <strong>Subject:</strong> {rejectedTemplate.subject}
+                  </p>
+                  <p className="mb-2">
+                    <strong>Body:</strong> {rejectedTemplate.message}
+                  </p>
+                  <Button
+                    onClick={() => openEditModal(rejectedTemplate)}
+                    className="bg-blue-500 text-white"
+                  >
+                    Edit Rejected Template
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Modal for Editing Template */}
+        {editingTemplate && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-50">
+            <div className="bg-white dark:bg-gray-900 text-black dark:text-white p-8 rounded-md shadow-lg w-1/2 flex flex-col">
+              <h2 className="text-xl font-semibold mb-4">Edit Template</h2>
+              <div className="mb-4">
+                <label htmlFor="subject" className="block text-sm font-medium mb-2">
+                  Subject:
+                </label>
+                <Input
+                  id="subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full bg-gray-100 dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600"
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="message" className="block text-sm font-medium mb-2">
+                  Message (Body):
+                </label>
+                <Textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={8}
+                  className="w-full bg-gray-100 dark:bg-gray-700 text-black dark:text-white border border-gray-300 dark:border-gray-600"
+                />
+              </div>
+              <div className="mt-auto flex justify-between space-x-2">
+                <Button
+                  onClick={() => handleSave(editingTemplate)}
+                  className="bg-blue-500 text-white w-full sm:w-auto"
+                >
+                  Save Template
+                </Button>
+                <Button onClick={closeModal} className="bg-gray-500 text-white w-full sm:w-auto">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
