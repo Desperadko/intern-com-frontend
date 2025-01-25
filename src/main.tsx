@@ -29,6 +29,7 @@ import ApplicationsPage from "./pages/ApplicationsPage.tsx";
 import "./i18n/i18n.ts";
 import { SubscriptionPage } from "./pages/SubscriptionPage.tsx";
 import { SubscriptionSuccessPage } from "./pages/SubscriptionSuccessPage.tsx";
+import EditMailTemplate from "./pages/EditEmailTemplate.tsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -46,6 +47,7 @@ const router = createBrowserRouter(
       <Route path="/auth/:type?" element={<AuthPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/map" element={<MapPage />} />
+      <Route path="/editemailtemplate" element={<EditMailTemplate />} />
 
       {/* Protected routes */}
       <Route
