@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import api from "@/lib/api";
+import api, { emailTemplates } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { User } from "@/contexts/AuthContext";
@@ -34,7 +34,6 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 interface Template {
-  id: string;
   subject: string;
   message: string;
 }
@@ -54,19 +53,11 @@ export function AdminPanel() {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const acceptedResponse = await fetch("/email-template?isApproved=true");
-        if (!acceptedResponse.ok) {
-          throw new Error("Failed to fetch accepted template");
-        }
-        const acceptedData = await acceptedResponse.json();
-        setAcceptedTemplate(acceptedData.template);
+        const acceptedResponse = await emailTemplates.get("accepted");
+        setAcceptedTemplate(acceptedResponse.data);
 
-        const rejectedResponse = await fetch("/email-template?isApproved=false");
-        if (!rejectedResponse.ok) {
-          throw new Error("Failed to fetch rejected template");
-        }
-        const rejectedData = await rejectedResponse.json();
-        setRejectedTemplate(rejectedData.template);
+        const rejectedResponse = await emailTemplates.get("rejected");
+        setRejectedTemplate(rejectedResponse.data);
       } catch (err) {
         setError("Error fetching templates.");
         console.error("Error fetching templates:", err);
@@ -97,16 +88,42 @@ export function AdminPanel() {
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
 
-  const handleSave = async (templateId: string) => {
-    const updatedTemplate: Template = { id: templateId, subject, message };
-    console.log("Saving Template:", updatedTemplate);
-    alert(`Template saved: ${templateId}`);
-    setEditingTemplate(null);
+  const handleSave = async (templateType: "accepted" | "rejected") => {
+    const updatedTemplate: Template = { subject, message };
+ 
+    try{
+      const response = await emailTemplates.save(templateType, updatedTemplate);
+      console.log(response.data);
+
+      toast({
+        title: `Template saved successfully`,
+        description: `${templateType} template has been updated`,
+        variant: `default`,
+      });
+      
+      if(templateType === "accepted"){
+        setAcceptedTemplate(updatedTemplate);
+      }
+      else{
+        setRejectedTemplate(updatedTemplate);
+      }
+
+      setEditingTemplate(null);
+    }
+    catch(e){
+      console.error("Error saving template: ", e);
+      
+      toast({
+        title: `Error saving template`,
+        description: `Please try again later`,
+        variant: `destructive`,
+      });
+    }
   };
-  const openEditModal = (template: Template) => {
+  const openEditModal = (template: Template, type: "accepted" | "rejected") => {
     setSubject(template.subject);
     setMessage(template.message);
-    setEditingTemplate(template.id as "accepted" | "rejected");
+    setEditingTemplate(type);
   };
   const closeModal = () => {
     setEditingTemplate(null);
@@ -248,14 +265,13 @@ export function AdminPanel() {
           </TableBody>
         </Table>
       </div>
+      
       <div className="max-w-2x1 mx-auto mt-8">
         <Card>
           <CardHeader className="text-xl font-bold">Mail Templates</CardHeader>
           <CardContent>
-            {/* Grid layout to display templates */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-              {/* Display Accepted Template */}
-              {acceptedTemplate && editingTemplate !== "accepted" ? (
+              {acceptedTemplate && (
                 <div className="flex flex-col">
                   <h2 className="text-lg font-semibold mb-2">Accepted Template</h2>
                   <p className="font-medium mb-2">
@@ -265,16 +281,15 @@ export function AdminPanel() {
                     <strong>Body:</strong> {acceptedTemplate.message}
                   </p>
                   <Button
-                    onClick={() => openEditModal(acceptedTemplate)}
+                    onClick={() => openEditModal(acceptedTemplate, "accepted")}
                     className="bg-blue-500 text-white"
                   >
                     Edit Accepted Template
                   </Button>
                 </div>
-              ) : null}
+              )}
 
-              {/* Display Rejected Template */}
-              {rejectedTemplate && editingTemplate !== "rejected" ? (
+              {rejectedTemplate && (
                 <div className="flex flex-col">
                   <h2 className="text-lg font-semibold mb-2">Rejected Template</h2>
                   <p className="font-medium mb-2">
@@ -284,18 +299,17 @@ export function AdminPanel() {
                     <strong>Body:</strong> {rejectedTemplate.message}
                   </p>
                   <Button
-                    onClick={() => openEditModal(rejectedTemplate)}
+                    onClick={() => openEditModal(rejectedTemplate, "rejected")}
                     className="bg-blue-500 text-white"
                   >
                     Edit Rejected Template
                   </Button>
                 </div>
-              ) : null}
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Modal for Editing Template */}
         {editingTemplate && (
           <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-800 bg-opacity-50">
             <div className="bg-white dark:bg-gray-900 text-black dark:text-white p-8 rounded-md shadow-lg w-1/2 flex flex-col">
